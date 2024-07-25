@@ -1,0 +1,253 @@
+-- tablas usadas en la clase 22 mayo
+
+-- producto es debil (CP:cod+num)
+CREATE TABLE clase.producto
+(
+    cod integer NOT NULL,
+    num integer NOT NULL,
+    nombre character varying(30) COLLATE pg_catalog."default",
+    precio double precision,
+    stock integer,
+    CONSTRAINT producto_pkey PRIMARY KEY (cod, num),
+    CONSTRAINT producto_num_fkey FOREIGN KEY (num)
+        REFERENCES public.sucursal (num) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
+)
+
+CREATE TABLE clase.factura
+(
+    num integer NOT NULL,
+    fecha date,
+    calif double precision,
+    CONSTRAINT factura_pkey PRIMARY KEY (num)
+)
+CREATE TABLE clase.detalle
+(
+    numf integer NOT NULL,
+    cod integer NOT NULL,
+    num integer NOT NULL,
+    precio double precision,
+    cantidad integer,
+    CONSTRAINT detalle_pkey PRIMARY KEY (numf, cod, num),
+    CONSTRAINT foraneProd FOREIGN KEY (cod, num)
+        REFERENCES clase.producto (cod, num), 
+    CONSTRAINT foraneaFact FOREIGN KEY (numf)
+        REFERENCES clase.factura (num))
+
+-------------------
+-- clase 27 de mayo
+CREATE TABLE clase.DEP(
+    nroDep INT PRIMARY KEY,
+    nomDep VARCHAR(100),
+    jefe VARCHAR(11) 
+);
+
+-- Crear tabla EMP
+drop table clase.DEP cascade
+
+CREATE TABLE clase.EMP (
+    cuil VARCHAR(11) PRIMARY KEY,
+    nyAp VARCHAR(100),
+    direcc VARCHAR(255),
+    nroDep INT,
+    FOREIGN KEY (nroDep) REFERENCES clase.DEP(nroDep) 
+	ON DELETE RESTRICT 
+	on update RESTRICT
+);
+-- agregue dos columnas
+alter table clase.emp add  genero VARCHAR(20);
+alter table clase.emp add  salario decimal(7, 2);
+
+-- agregar restriccion de CF de la tabla DEP
+alter table clase.dep add constraint cfJefe
+FOREIGN KEY (jefe)  REFERENCES clase.EMP(cuil) 
+ON DELETE set null 
+on update cascade
+
+-------- Insercion de tuplas -----------
+INSERT INTO clase.DEP (nroDep, nomDep, jefe)
+VALUES
+    (1, 'Ventas', null),
+    (2, 'Marketing', null),
+    (3, 'Recursos Humanos',null);
+
+INSERT INTO clase.DEP (nroDep, nomDep, jefe)
+VALUES     (4, 'Personal', null);
+
+INSERT INTO clase.EMP (cuil, nyAp, direcc, nroDep)
+VALUES
+    ('1', 'Juan', 'Calle', 1),
+    ('2', 'Maria', 'Avenida', 2),
+    ('3', 'Pedro', 'Calle', 3),
+    ('4', 'Ana', 'Calle', 1),
+    ('5', 'Luis', 'Avenida', null);
+
+UPDATE  clase.EMP 
+SET  salario = salario * 1.10
+WHERE nrodep=1; 
+
+
+DELETE from clase.EMP
+WHERE cuil= '1';
+
+INSERT INTO clase.EMP (cuil, nyAp, direcc, nroDep)
+values ('1', 'Luis', 'Avenida', null);
+
+INSERT INTO clase.EMP (cuil, nyAp, direcc, nroDep)
+values ('5', 'Luis', 'Avenida', null);
+
+------------------------------------------------------------
+-- CLASE ANTERIOR  22 mayo
+
+-- CLAUSULA SELECT
+-- Atributo/Columna
+select cod, num, nombre, precio
+from clase.producto
+
+select * 
+from clase.producto
+
+-- Constante
+select cod, num, nombre, 'precio', precio, 2
+from clase.producto
+
+-- nombrar columnas
+select cod xx, num, nombre, 'precio' as constante, precio
+from clase.producto
+
+-- Función
+select nombre, LENGTH(nombre)
+from clase.producto
+
+-- Expresion 
+select precio, cantidad, precio*cantidad
+from clase.detalle
+
+-- CLAUSULA FROM
+-- tabla, tablas (unidas con coma, natural join, u otros joins)
+select * 
+from clase.producto
+
+select * 
+from clase.producto, clase.detalle
+
+select * 
+from clase.producto p join clase.detalle d on p.cod=d.cod 
+
+-- tabla con alias
+select p.cod
+from clase.producto as p
+
+-- subconsulta en el from 
+SELECT factura.*, x.cantidad
+FROM clase.factura, (SELECT numf, count(*) as cantidad
+    			FROM clase.detalle
+				group by numf) x
+where num=x.numf			   
+
+select *
+from clase.factura
+
+--- OPERADORES ALGEBRA
+-- JOINS ----
+SELECT nrodep FROM CLASE.emp
+
+SELECT * FROM CLASE.EMP NATURAL JOIN CLASE.DEP order by cuil
+
+SELECT * FROM CLASE.EMP LEFT JOIN CLASE.DEP ON emp.nroDep=dep.nrodep order by cuil
+
+-- MINUS (EXCEPT)
+-- departamentos sin empleados
+SELECT NRODEP
+FROM CLASE.dep 
+EXCEPT
+SELECT NRODEP
+FROM CLASE.emp
+
+-- INTERSECCION (INTERSECT)
+-- empleados mujeres que trabajan en el depto 1 (podria hacerlo sin intersect)
+
+SELECT cuil
+FROM CLASE.emp
+where genero = 'F'
+and nrodep = 1
+
+-- con intersect
+SELECT cuil
+FROM CLASE.emp
+where genero = 'F'
+intersect
+SELECT cuil
+FROM CLASE.emp
+where nrodep = 1
+
+-- UNION  (UNION)
+-- empleados  que trabajan en el depto 1 junto a los que trabajan en el depto 2
+
+SELECT cuil
+FROM CLASE.emp
+where nrodep = 1 or nrodep  = 2  
+
+-- con union 
+
+SELECT cuil
+FROM CLASE.emp
+where nrodep = 1   
+union 
+SELECT cuil
+FROM CLASE.emp
+where nrodep = 2  
+
+
+-- SUBCONSULTAS
+-- NO CORRELACIONADAS
+-- departamentos que tienen empleados
+SELECT * 
+FROM CLASE.dep
+WHERE NRODEP IN
+(SELECT NRODEP
+ FROM CLASE.emp)
+
+-- correlacionadas
+SELECT * 
+FROM CLASE.dep d
+WHERE   exists
+(SELECT NRODEP
+ FROM CLASE.emp e
+ where d.nrodep=e.nrodep)
+
+
+-- departamentos sin empleados
+-- CUIDADO RESULTADO ERRONEO DEPTOS SIN EMPLEADOS RESUELTO CON NOT IN
+-- ERROR EN EL RESULTADO
+SELECT * 
+FROM CLASE.dep
+WHERE NRODEP NOT IN
+(SELECT NRODEP
+ FROM CLASE.emp)
+ 
+-- departamentos sin empleados con not exists (resutlado correcto)
+SELECT * 
+FROM CLASE.dep d
+WHERE  not exists
+(SELECT NRODEP
+ FROM CLASE.emp e
+ where d.nrodep=e.nrodep)
+ 
+-- SUBCONSULTAS EN EL FROM
+-- empledos que tienen un salario mayor al promedio de salarios
+SELECT e.*
+FROM clase.emp e,
+    (SELECT round(AVG(salario)) AS prom FROM clase.emp) AS pp
+WHERE e.salario > pp.prom;
+
+-- agrupamiento y having
+SELECT nrodep, count(*)
+FROM clase.dep
+GROUP BY nrodep
+
+SELECT nrodep, count(*) 
+FROM clase.dep
+GROUP BY nrodep
+HAVING count(*)>1;
